@@ -1,0 +1,87 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+/**
+ *  Usercode Components
+ */
+parser code {:
+
+    Scanner s;
+    Parser(Scanner s){ this.s=s; }
+:}
+
+/* define how to connect to the scanner! */
+scan with {: return s.next_token(); :};
+
+/**
+ *  Symbol Lists
+ */
+
+/* Terminals (tokens returned by the scanner). */
+terminal            PLUS, LPAREN, RPAREN, LBRAC, RBRAC, EQ, COMMA, IF, ELSE, IN;
+terminal String     STRING_LITERAL, IDENTIFIER;        // our scanner provides numbers as strings
+
+/*  Non terminals */
+non terminal            program;
+non terminal String     defs, calls, def, call, cond, defarglist, callarglist, block, expr, statement;
+
+/**
+ *  Precedence Declarations
+ */
+precedence left PLUS;
+precedence left IN;
+precedence left LPAREN;
+precedence left RPAREN;
+precedence left COMMA; 
+precedence left ELSE; 
+
+/**
+ *  The Grammar Rules
+ */
+
+program ::= defs:ds calls:cs							      {: PrintWriter out = new PrintWriter("Main.java", "UTF-8");
+																 out.println("import java.io.*;\n\n\n" + "public class Main {\n\n" + ds + "\tpublic static void main(String[] args) {\n" + cs + "\n\t}\n}");
+																 out.close(); :}
+		| defs:ds 											  {: PrintWriter out = new PrintWriter("Main.java", "UTF-8");
+																 out.println("import java.io.*;\n\n\n" + "public class Main {\n\n" + ds + "\tpublic static void main(String[] args) {\n\n\t} \n\n}");
+																 out.close(); :}
+		| calls:cs                                            {: PrintWriter out = new PrintWriter("Main.java", "UTF-8");
+																 out.println("import java.io.*;\n\n\n" + "public class Main {\n\n" + "\tpublic static void main(String[] args) {\n" + cs + "\n\t}\n}");
+																 out.close(); :}
+		;
+defs    ::= defs:ds def:d   					              {: RESULT = ds + d; :}
+		| def:d                                               {: RESULT= d; :}
+		;
+calls   ::= calls:cs call:c						              {: RESULT  = cs + "\t\tSystem.out.println(" + c + ");\n"; :}
+		|	call:c                                            {: RESULT = "\t\tSystem.out.println(" + c + ");\n" ; :}
+		;	
+def     ::= IDENTIFIER:id LPAREN defarglist:d block:b         {: RESULT = "\tpublic static String " + id + "(" + d + ")" + b; :}
+		|   IDENTIFIER:id LPAREN RPAREN block:b               {: RESULT = "\tpublic static String " + id + "()" + b; :}
+		;
+call    ::= IDENTIFIER:id LPAREN callarglist:c RPAREN         {: RESULT = id + "(" + c + ")"; :}
+		|   IDENTIFIER:id LPAREN RPAREN					      {: RESULT = id + "()"; :}
+		;
+defarglist  ::= IDENTIFIER:id COMMA defarglist:d	          {: RESULT = "String " + id + ", " + d; :}
+			| 	IDENTIFIER:id RPAREN					      {: RESULT = "String " + id; :}
+			;
+callarglist ::= expr:e COMMA callarglist:a			          {: RESULT = e + ", " + a; :}
+		|   expr:e 								              {: RESULT = e; :}
+		;
+block   ::= LBRAC expr:e RBRAC					              {: RESULT = "{\n\t\t" + "return " + e + ";" + "\n\t}\n\n"; :}
+		;
+expr    ::= STRING_LITERAL:s					              {: RESULT = "\"" + s + "\""; :}
+		| statement:st								          {: RESULT = st; :}
+		| call:c 									          {: RESULT = c;  :}
+		| expr:e1 PLUS expr:e2						          {: RESULT = e1 + " + " + e2; :}
+		| IDENTIFIER:id                                       {: RESULT = id; :}
+		| LPAREN expr:e RPAREN						          {: RESULT = "(" + e + ")"; :}
+		;
+statement ::= IF cond:c expr:e1 ELSE expr:e2 		          {: RESULT = "(" + c + "?" + e1 + " : " + e2 + ")"; :}
+		  ;
+cond      ::= LPAREN expr:e1 EQ expr:e2 RPAREN	              {: RESULT = "(" + e1 + ")" + ".equals(" + e2 + ")"; :}
+		  | LPAREN expr:e1 IN expr:e2 RPAREN	              {: RESULT = "(" + e2 + ")" + ".contains(" + e1 + ")"; :}
+		  ;
+
+
+
+
